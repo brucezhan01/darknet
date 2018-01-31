@@ -1,0 +1,8 @@
+cp -ap ../src ./src
+rename 's/\.c$/\.cpp/' src/*.c
+ln -s ../cfg ./cfg
+ln -s ../data ./data
+ln -s ../tiny-yolo-voc.weights ./tiny-yolo-voc.weights
+make all TARGETS=sw_emu
+./host detector test cfg/voc.data cfg/tiny-yolo-voc.cfg tiny-yolo-voc.weights data/dog.jpg
+
