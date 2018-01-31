@@ -1,9 +1,6 @@
 cp -ap ../src ./src
 rename 's/\.c$/\.cpp/' src/*.c
 mkdir -p ./prj_hls_darknet/solution1/csim/build
-ln -s /local/bzhan/Workshop/darknet/darknet_cpp_dev/cfg prj_hls_darknet/solution1/csim/build/cfg
-ln -s /local/bzhan/Workshop/darknet/darknet_cpp_dev/data prj_hls_darknet/solution1/csim/build/data
-ln -s /local/bzhan/Workshop/darknet/darknet_cpp_dev/tiny-yolo-voc.weights prj_hls_darknet/solution1/csim/build/tiny-yolo-voc.weights
 vivado_hls -f run_hls.tcl "doCsim 1 doRTLsynth 0"
 ln -s ../cfg ./cfg
 ln -s ../data ./data
