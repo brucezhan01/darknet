@@ -15,7 +15,7 @@
 
 GPU=0
 CUDNN=0
-OPENCV=1
+OPENCV=0
 DEBUG=0
 CUDA_MEM_DEBUG=0
 LOW_PRECISION=1
@@ -87,11 +87,6 @@ endif
 
 OBJ-SHARED= utils.o cuda.o deconvolutional_layer.o convolutional_layer.o list.o image.o activations.o im2col.o col2im.o blas.o crop_layer.o dropout_layer.o maxpool_layer.o softmax_layer.o data.o matrix.o network.o connected_layer.o cost_layer.o parser.o option_list.o detection_layer.o captcha.o route_layer.o writing.o box.o nightmare.o normalization_layer.o avgpool_layer.o coco.o dice.o yolo.o detector.o layer.o compare.o regressor.o classifier.o local_layer.o swag.o shortcut_layer.o activation_layer.o rnn_layer.o gru_layer.o rnn.o rnn_vid.o crnn_layer.o demo.o tag.o cifar.o go.o batchnorm_layer.o art.o region_layer.o reorg_layer.o lsd.o super.o voxel.o tree.o
 OBJ-SHARED+= conv_maxpool_layer.o
-ifeq ($(LOW_PRECISION), 1)
-OBJ-SHARED+= gemm_lowp.o
-else
-OBJ-SHARED+= gemm.o
-endif
 
 ifeq ($(GPU), 1) 
 LDFLAGS+= -lstdc++ 
@@ -99,11 +94,18 @@ OBJ-GPU=convolutional_kernels.o deconvolutional_kernels.o activation_kernels.o i
 OBJ-SHARED+=$(OBJ-GPU)
 endif
 
-OBJ=$(OBJ-SHARED) darknet.o
-OBJS = $(addprefix $(OBJDIR), $(OBJ))
+OBJ_C=$(OBJ-SHARED) gemm.o darknet.o
+OBJS = $(addprefix $(OBJDIR), $(OBJ_C))
 DEPS = $(wildcard src/*.h) Makefile
 
-OBJS_CPP = $(addprefix $(OBJDIR_CPP), $(OBJ))
+OBJ_CPP=$(OBJ-SHARED)
+ifeq ($(LOW_PRECISION), 1)
+OBJ_CPP+= gemm_lowp.o
+else
+OBJ_CPP+= gemm.o
+endif
+OBJ_CPP+= darknet.o
+OBJS_CPP = $(addprefix $(OBJDIR_CPP), $(OBJ_CPP))
 OBJS_CPP_SHARED = $(addprefix $(OBJDIR_CPP_SHARED), $(OBJ-SHARED))
 
 all: backup obj obj-cpp results $(EXEC) $(EXEC_CPP)

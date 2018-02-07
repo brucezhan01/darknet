@@ -1,4 +1,4 @@
-#include "gemm.h"
+#include "gemm_lowp.h"
 #include "utils.h"
 #include "cuda.h"
 #include <stdlib.h>
@@ -6,8 +6,7 @@
 #include <math.h>
 #include <string.h>
 
-typedef float lowp_t;
-
+#if 0
 void gemm_bin(int M, int N, int K, lowp_t ALPHA, 
         char  *A, int lda, 
         lowp_t *B, int ldb,
@@ -55,7 +54,7 @@ void time_random_matrix(int TA, int TB, int m, int k, int n)
     int i;
     clock_t start = clock(), end;
     for(i = 0; i<10; ++i){
-        gemm_cpu(TA,TB,m,n,k,1,a,lda,b,ldb,1,c,n);
+        gemm_cpu(TA,TB,m,n,k,(lowp_t)1,a,lda,b,ldb,(lowp_t)1,c,n);
     }
     end = clock();
     printf("Matrix Multiplication %dx%d * %dx%d, TA=%d, TB=%d: %lf ms\n",m,k,k,n, TA, TB, (lowp_t)(end-start)/CLOCKS_PER_SEC);
@@ -63,7 +62,7 @@ void time_random_matrix(int TA, int TB, int m, int k, int n)
     free(b);
     free(c);
 }
-
+#endif
 
 void gemm(int TA, int TB, int M, int N, int K, float ALPHA, 
         float *A, int lda, 
@@ -80,28 +79,39 @@ void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
     */
     lowp_t *lowpA = (lowp_t*)malloc(M*K*sizeof(lowp_t));
     lowp_t *lowpB = (lowp_t*)malloc(K*N*sizeof(lowp_t));
-    lowp_t *lowpC = (lowp_t*)malloc(M*N*sizeof(lowp_t));
-    memset(lowpC, 0, M*N*sizeof(lowp_t));
+    acc_lowp_t *lowpC = (acc_lowp_t*)malloc(M*N*sizeof(acc_lowp_t));
+    
+    //memset(lowpC, 0, M*N*sizeof(lowp_t));
+    for (m = 0; m < M; ++m) {
+        for (n = 0; n < N; ++n) {
+            lowpC[m*ldc+n] = (acc_lowp_t)((C[m*ldc+n]));
+            //lowpC[m*ldc+n] = half_float::half_cast<half, std::round_to_nearest>(C[m*ldc+n]);
+        }
+    }
     
     for(m = 0; m < M; ++m){
         for(k = 0; k < K; ++k){
             lowpA[m*lda+k] = (lowp_t)(A[m*lda+k]);
+            //lowpA[m*lda+k] = half_float::half_cast<half, std::round_to_nearest>(A[m*lda+k]);
         }
     }
     for(k = 0; k < K; ++k){
         for(n = 0; n < N; ++n){
             lowpB[k*ldb+n] = (lowp_t)(B[k*ldb+n]);
-            //B[k*ldb+n] = (float)half_float::half_cast<half, std::round_to_nearest>(B[k*ldb+n]);
+            //lowpB[k*ldb+n] = half_float::half_cast<half, std::round_to_nearest>(B[k*ldb+n]);
         }
     }
     
     gemm_cpu(TA, TB, M, N, K, (lowp_t)ALPHA, lowpA, lda, lowpB, ldb, (lowp_t)BETA, lowpC, ldc);
 
+
     for (m = 0; m < M; ++m) {
         for (n = 0; n < N; ++n) {
-            C[m*ldc+n] = (float)(lowpC[m*ldc+n]);
+            C[m*ldc+n] = (float)((lowp_t)(lowpC[m*ldc+n]));
+            //C[m*ldc+n] = lowpC[m*ldc+n];
         }
     }
+
     
     /*
     delete []lowpA;
@@ -116,7 +126,7 @@ void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
 void gemm_nn(int M, int N, int K, lowp_t ALPHA, 
         lowp_t *A, int lda, 
         lowp_t *B, int ldb,
-        lowp_t *C, int ldc)
+        acc_lowp_t *C, int ldc)
 {
     int i,j,k;
     for(i = 0; i < M; ++i){
@@ -132,12 +142,12 @@ void gemm_nn(int M, int N, int K, lowp_t ALPHA,
 void gemm_nt(int M, int N, int K, lowp_t ALPHA, 
         lowp_t *A, int lda, 
         lowp_t *B, int ldb,
-        lowp_t *C, int ldc)
+        acc_lowp_t *C, int ldc)
 {
     int i,j,k;
     for(i = 0; i < M; ++i){
         for(j = 0; j < N; ++j){
-            register lowp_t sum = 0;
+            register lowp_t sum = (lowp_t)0.0f;
             for(k = 0; k < K; ++k){
                 sum += ALPHA*A[i*lda+k]*B[j*ldb + k];
             }
@@ -149,7 +159,7 @@ void gemm_nt(int M, int N, int K, lowp_t ALPHA,
 void gemm_tn(int M, int N, int K, lowp_t ALPHA, 
         lowp_t *A, int lda, 
         lowp_t *B, int ldb,
-        lowp_t *C, int ldc)
+        acc_lowp_t *C, int ldc)
 {
     int i,j,k;
     for(i = 0; i < M; ++i){
@@ -165,12 +175,12 @@ void gemm_tn(int M, int N, int K, lowp_t ALPHA,
 void gemm_tt(int M, int N, int K, lowp_t ALPHA, 
         lowp_t *A, int lda, 
         lowp_t *B, int ldb,
-        lowp_t *C, int ldc)
+        acc_lowp_t *C, int ldc)
 {
     int i,j,k;
     for(i = 0; i < M; ++i){
         for(j = 0; j < N; ++j){
-            register lowp_t sum = 0;
+            register lowp_t sum = (lowp_t)0.0f;
             for(k = 0; k < K; ++k){
                 sum += ALPHA*A[i+k*lda]*B[k+j*ldb];
             }
@@ -184,10 +194,9 @@ void gemm_cpu(int TA, int TB, int M, int N, int K, lowp_t ALPHA,
         lowp_t *A, int lda, 
         lowp_t *B, int ldb,
         lowp_t BETA,
-        lowp_t *C, int ldc)
+        acc_lowp_t *C, int ldc)
 {
     //printf("cpu: %d %d %d %d %d %f %d %d %f %d\n",TA, TB, M, N, K, ALPHA, lda, ldb, BETA, ldc);
-    printf("gemm_cpu()\n");
     int i, j;
     for(i = 0; i < M; ++i){
         for(j = 0; j < N; ++j){
