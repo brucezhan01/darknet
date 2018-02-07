@@ -65,6 +65,8 @@ typedef struct network{
     float **input_gpu;
     float **truth_gpu;
     #endif
+
+	int enable_fuse;
 } network;
 
 typedef struct network_state {

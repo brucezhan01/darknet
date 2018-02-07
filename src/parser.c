@@ -618,6 +618,7 @@ network parse_network_cfg(char *filename)
     if(!n) error("Config file has no sections");
     network net = make_network(sections->size - 1);
     net.gpu_index = gpu_index;
+    net.enable_fuse = 1;
     size_params params;
 
     section *s = (section *)n->val;

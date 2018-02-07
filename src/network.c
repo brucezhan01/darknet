@@ -14,6 +14,7 @@
 #include "crnn_layer.h"
 #include "local_layer.h"
 #include "convolutional_layer.h"
+#include "conv_maxpool_layer.h"
 #include "activation_layer.h"
 #include "detection_layer.h"
 #include "region_layer.h"
@@ -175,14 +176,57 @@ void forward_network(network net, network_state state)
 {
     state.workspace = net.workspace;
     int i;
-    for(i = 0; i < net.n; ++i){
-        state.index = i;
-        layer l = net.layers[i];
-        if(l.delta){
-            fill_cpu(l.outputs * l.batch, 0, l.delta, 1);
+
+	if (net.enable_fuse) {
+        for(i = 0; i < net.n;){
+            #if 0
+            printf("forward_networkd()--layer %d\n", i);
+            state.index = i;
+            layer l = net.layers[i++];
+            if(l.delta){
+                fill_cpu(l.outputs * l.batch, 0, l.delta, 1);
+            }
+            l.forward(l, state);
+            state.input = l.output;
+            if (i < net.n && l.type == CONVOLUTIONAL && net.layers[i].type == MAXPOOL) {
+                printf("    forward_network()-- fusing layer %d and layer %d\n", i-1, i);
+                state.index = i;
+                layer l = net.layers[i++];
+                if(l.delta){
+                    fill_cpu(l.outputs * l.batch, 0, l.delta, 1);
+                }
+                l.forward(l, state);
+                state.input = l.output;
+            }
+            #else
+            printf("forward_networkd()--layer %d\n", i);
+            state.index = i;
+            layer l = net.layers[i++];
+            if(l.delta){
+                fill_cpu(l.outputs * l.batch, 0, l.delta, 1);
+            }
+            
+            if (i < net.n && l.type == CONVOLUTIONAL && net.layers[i].type == MAXPOOL) {
+                printf("    forward_network()-- fusing layer %d and layer %d\n", i-1, i);
+                layer l_next = net.layers[i++];
+                forward_conv_maxpool_layer(l, l_next, state);
+                state.input = l_next.output;
+            } else {
+                l.forward(l, state);
+                state.input = l.output;
+            }
+            #endif
         }
-        l.forward(l, state);
-        state.input = l.output;
+    } else {
+        for(i = 0; i < net.n; ++i){
+            state.index = i;
+            layer l = net.layers[i];
+            if(l.delta){
+                fill_cpu(l.outputs * l.batch, 0, l.delta, 1);
+            }
+            l.forward(l, state);
+            state.input = l.output;
+        }
     }
 }
 
