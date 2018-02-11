@@ -32,9 +32,9 @@ void gemm_bin(int M, int N, int K, lowp_t ALPHA,
 lowp_t *random_matrix(int rows, int cols)
 {
     int i;
-    lowp_t *m = (lowp_t*)calloc(rows*cols, sizeof(lowp_t));
+    lowp_t *m = LOWP_PTR_CAST(calloc(rows*cols, sizeof(lowp_t)));
     for(i = 0; i < rows*cols; ++i){
-        m[i] = (lowp_t)rand()/RAND_MAX;
+        m[i] = LOWP_CAST(rand()/RAND_MAX);
     }
     return m;
 }
@@ -54,10 +54,10 @@ void time_random_matrix(int TA, int TB, int m, int k, int n)
     int i;
     clock_t start = clock(), end;
     for(i = 0; i<10; ++i){
-        gemm_cpu(TA,TB,m,n,k,(lowp_t)1,a,lda,b,ldb,(lowp_t)1,c,n);
+        gemm_cpu(TA,TB,m,n,k,LOWP_CAST(1),a,lda,b,ldb,LOWP_CAST(1),c,n);
     }
     end = clock();
-    printf("Matrix Multiplication %dx%d * %dx%d, TA=%d, TB=%d: %lf ms\n",m,k,k,n, TA, TB, (lowp_t)(end-start)/CLOCKS_PER_SEC);
+    printf("Matrix Multiplication %dx%d * %dx%d, TA=%d, TB=%d: %lf ms\n",m,k,k,n, TA, TB, LOWP_CAST((end-start)/CLOCKS_PER_SEC));
     free(a);
     free(b);
     free(c);
@@ -77,37 +77,37 @@ void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
     lowp_t *lowpB = new lowp_t[K*N*sizeof(lowp_t)];
     lowp_t *lowpC = new lowp_t[M*N*sizeof(lowp_t)];
     */
-    lowp_t *lowpA = (lowp_t*)malloc(M*K*sizeof(lowp_t));
-    lowp_t *lowpB = (lowp_t*)malloc(K*N*sizeof(lowp_t));
-    acc_lowp_t *lowpC = (acc_lowp_t*)malloc(M*N*sizeof(acc_lowp_t));
+    lowp_t *lowpA = LOWP_PTR_CAST(malloc(M*K*sizeof(lowp_t)));
+    lowp_t *lowpB = LOWP_PTR_CAST(malloc(K*N*sizeof(lowp_t)));
+    acc_lowp_t *lowpC = ACC_LOWP_PTR_CAST(malloc(M*N*sizeof(acc_lowp_t)));
     
     //memset(lowpC, 0, M*N*sizeof(lowp_t));
     for (m = 0; m < M; ++m) {
         for (n = 0; n < N; ++n) {
-            lowpC[m*ldc+n] = (acc_lowp_t)((C[m*ldc+n]));
+            lowpC[m*ldc+n] = ACC_LOWP_CAST(C[m*ldc+n]);
             //lowpC[m*ldc+n] = half_float::half_cast<half, std::round_to_nearest>(C[m*ldc+n]);
         }
     }
     
     for(m = 0; m < M; ++m){
         for(k = 0; k < K; ++k){
-            lowpA[m*lda+k] = (lowp_t)(A[m*lda+k]);
+            lowpA[m*lda+k] = LOWP_CAST(A[m*lda+k]);
             //lowpA[m*lda+k] = half_float::half_cast<half, std::round_to_nearest>(A[m*lda+k]);
         }
     }
     for(k = 0; k < K; ++k){
         for(n = 0; n < N; ++n){
-            lowpB[k*ldb+n] = (lowp_t)(B[k*ldb+n]);
+            lowpB[k*ldb+n] = LOWP_CAST(B[k*ldb+n]);
             //lowpB[k*ldb+n] = half_float::half_cast<half, std::round_to_nearest>(B[k*ldb+n]);
         }
     }
     
-    gemm_cpu(TA, TB, M, N, K, (lowp_t)ALPHA, lowpA, lda, lowpB, ldb, (lowp_t)BETA, lowpC, ldc);
+    gemm_cpu(TA, TB, M, N, K, LOWP_CAST(ALPHA), lowpA, lda, lowpB, ldb, LOWP_CAST(BETA), lowpC, ldc);
 
 
     for (m = 0; m < M; ++m) {
         for (n = 0; n < N; ++n) {
-            C[m*ldc+n] = (float)((lowp_t)(lowpC[m*ldc+n]));
+            C[m*ldc+n] = (float)(LOWP_CAST(lowpC[m*ldc+n]));
             //C[m*ldc+n] = lowpC[m*ldc+n];
         }
     }
@@ -133,7 +133,7 @@ void gemm_nn(int M, int N, int K, lowp_t ALPHA,
         for(k = 0; k < K; ++k){
             register lowp_t A_PART = ALPHA*A[i*lda+k];
             for(j = 0; j < N; ++j){
-                C[i*ldc+j] += A_PART*B[k*ldb+j];
+                C[i*ldc+j] += ACC_LOWP_CAST(A_PART*B[k*ldb+j]);
             }
         }
     }
@@ -147,9 +147,9 @@ void gemm_nt(int M, int N, int K, lowp_t ALPHA,
     int i,j,k;
     for(i = 0; i < M; ++i){
         for(j = 0; j < N; ++j){
-            register lowp_t sum = (lowp_t)0.0f;
+            register acc_lowp_t sum = ACC_LOWP_CAST(0.0f);
             for(k = 0; k < K; ++k){
-                sum += ALPHA*A[i*lda+k]*B[j*ldb + k];
+                sum += ACC_LOWP_CAST(ALPHA*A[i*lda+k]*B[j*ldb + k]);
             }
             C[i*ldc+j] += sum;
         }
@@ -166,7 +166,7 @@ void gemm_tn(int M, int N, int K, lowp_t ALPHA,
         for(k = 0; k < K; ++k){
             register lowp_t A_PART = ALPHA*A[k*lda+i];
             for(j = 0; j < N; ++j){
-                C[i*ldc+j] += A_PART*B[k*ldb+j];
+                C[i*ldc+j] += ACC_LOWP_CAST(A_PART*B[k*ldb+j]);
             }
         }
     }
@@ -180,9 +180,9 @@ void gemm_tt(int M, int N, int K, lowp_t ALPHA,
     int i,j,k;
     for(i = 0; i < M; ++i){
         for(j = 0; j < N; ++j){
-            register lowp_t sum = (lowp_t)0.0f;
+            register acc_lowp_t sum = ACC_LOWP_CAST(0.0f);
             for(k = 0; k < K; ++k){
-                sum += ALPHA*A[i+k*lda]*B[k+j*ldb];
+                sum += ACC_LOWP_CAST(ALPHA*A[i+k*lda]*B[k+j*ldb]);
             }
             C[i*ldc+j] += sum;
         }
@@ -200,7 +200,7 @@ void gemm_cpu(int TA, int TB, int M, int N, int K, lowp_t ALPHA,
     int i, j;
     for(i = 0; i < M; ++i){
         for(j = 0; j < N; ++j){
-            C[i*ldc + j] *= BETA;
+            C[i*ldc + j] = C[i*ldc + j] * ACC_LOWP_CAST(BETA);
         }
     }
     if(!TA && !TB)

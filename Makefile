@@ -50,7 +50,12 @@ LDFLAGS= -lm -pthread
 COMMON= 
 CFLAGS=-Wall -Wfatal-errors
 
-CFLAGS+= -I./src 
+CFLAGS+= -I./src
+
+ifeq ($(LOW_PRECISION), 1)
+# fastest:-1; toward 0:0; to nearest:1; toward positive infinity:2; toward negtive infinity:3
+CFLAGS+= -DHALF_ROUND_STYLE=1
+endif
 
 
 ifeq ($(DEBUG), 1) 
