@@ -10,7 +10,7 @@
 
 
 
-inline void add_bias(float *output, float *biases, int batch, int n, int size)
+static inline void add_bias(float *output, float *biases, int batch, int n, int size)
 {
     int i,j,b;
     for(b = 0; b < batch; ++b){
