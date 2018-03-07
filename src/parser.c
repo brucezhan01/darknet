@@ -1006,15 +1006,40 @@ void load_convolutional_weights(layer l, FILE *fp)
         //load_convolutional_weights_binary(l, fp);
         //return;
     }
+    static int conv_layer_cnt = 0;
+    int enable_dumping = 0;
+    FILE *fp_out;
+    if (enable_dumping)
+    {
+      char str[20];
+      _itoa(conv_layer_cnt, str, 10);
+      char fileName[100] = "conv_";
+      strcat(fileName, str);
+      strcat(fileName, ".bin");
+      fp_out = fopen(fileName, "wb");
+      conv_layer_cnt++;
+    }
     int num = l.n*l.c*l.size*l.size;
     
     printf("load_convolutional_weights: l.n*l.c*l.size*l.size = %d\n", l.n*l.c*l.size*l.size);
     
     fread(l.biases, sizeof(float), l.n, fp);
+    if (enable_dumping) {
+      fwrite(l.biases, sizeof(float), l.n, fp_out);
+    }
     if (l.batch_normalize && (!l.dontloadscales)){
         fread(l.scales, sizeof(float), l.n, fp);
+        if (enable_dumping) {
+          fwrite(l.scales, sizeof(float), l.n, fp_out);
+        }
         fread(l.rolling_mean, sizeof(float), l.n, fp);
+        if (enable_dumping) {
+          fwrite(l.rolling_mean, sizeof(float), l.n, fp_out);
+        }
         fread(l.rolling_variance, sizeof(float), l.n, fp);
+        if (enable_dumping) {
+          fwrite(l.rolling_variance, sizeof(float), l.n, fp_out);
+        }
         if(0){
             int i;
             for(i = 0; i < l.n; ++i){
@@ -1032,9 +1057,21 @@ void load_convolutional_weights(layer l, FILE *fp)
         }
     }
     fread(l.weights, sizeof(float), num, fp);
+    if (enable_dumping) {
+      fwrite(l.weights, sizeof(float), num, fp_out);
+    }
     if(l.adam){
         fread(l.m, sizeof(float), num, fp);
+        if (enable_dumping) {
+          fwrite(l.m, sizeof(float), num, fp_out);
+        }
         fread(l.v, sizeof(float), num, fp);
+        if (enable_dumping) {
+          fwrite(l.v, sizeof(float), num, fp_out);
+        }
+    }
+    if (enable_dumping) {
+      fclose(fp_out);
     }
     //if(l.c == 3) scal_cpu(num, 1./256, l.weights, 1);
     if (l.flipped) {
